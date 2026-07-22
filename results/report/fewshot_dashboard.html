@@ -1,0 +1,279 @@
+<title>Few-Shot GS + Diffusion Augmentation — Results</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+:root{
+  --page:#f6f7f9; --surface:#ffffff; --chart:#fcfcfd; --ink:#0e1114; --ink2:#4a4f57;
+  --muted:#8a8f98; --grid:#e7e9ed; --axis:#c9ccd2; --border:rgba(14,17,20,.09);
+  --accent:#2a78d6; --inpaint:#2a78d6; --svd:#eb6834; --good:#0f9d0f; --bad:#d03b3b;
+  --heat:42,120,214; --shadow:0 1px 2px rgba(14,17,20,.05),0 8px 24px rgba(14,17,20,.05);
+}
+@media (prefers-color-scheme:dark){:root:where(:not([data-theme=light])){
+  --page:#0b0d10; --surface:#15181c; --chart:#181b1f; --ink:#f1f3f6; --ink2:#b7bcc4;
+  --muted:#7e848d; --grid:#262a2f; --axis:#3a3f45; --border:rgba(255,255,255,.10);
+  --accent:#3f8ce8; --inpaint:#3f8ce8; --svd:#ef7a4a; --good:#2fbb2f; --bad:#e35b5b;
+  --heat:73,145,235; --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.35);
+}}
+:root[data-theme=dark]{
+  --page:#0b0d10; --surface:#15181c; --chart:#181b1f; --ink:#f1f3f6; --ink2:#b7bcc4;
+  --muted:#7e848d; --grid:#262a2f; --axis:#3a3f45; --border:rgba(255,255,255,.10);
+  --accent:#3f8ce8; --inpaint:#3f8ce8; --svd:#ef7a4a; --good:#2fbb2f; --bad:#e35b5b;
+  --heat:73,145,235; --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.5;
+  -webkit-font-smoothing:antialiased}
+.wrap{max-width:1120px;margin:0 auto;padding:40px 22px 80px}
+.mono{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+.eyebrow{font-family:ui-monospace,monospace;font-size:11px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--muted)}
+h1{font-size:clamp(26px,4vw,38px);line-height:1.1;margin:.35em 0 .15em;
+  letter-spacing:-.02em;text-wrap:balance;font-weight:680}
+.lede{color:var(--ink2);font-size:16px;max-width:64ch;margin:0}
+h2{font-size:13px;font-family:ui-monospace,monospace;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--muted);margin:52px 0 16px;font-weight:600;
+  display:flex;align-items:center;gap:10px}
+h2::after{content:"";flex:1;height:1px;background:var(--border)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;
+  box-shadow:var(--shadow)}
+/* stat tiles */
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(178px,1fr));gap:14px}
+.tile{padding:18px 18px 16px}
+.tile .k{font-family:ui-monospace,monospace;font-size:10.5px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--muted)}
+.tile .v{font-size:31px;font-weight:640;letter-spacing:-.02em;margin:8px 0 2px;
+  font-variant-numeric:tabular-nums}
+.tile .s{font-size:12.5px;color:var(--ink2)}
+.up{color:var(--good)} .down{color:var(--bad)}
+/* small multiples */
+.grid6{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.chartcard{padding:14px 14px 8px}
+.chartcard .hd{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px}
+.chartcard .t{font-weight:620;font-size:14px}
+.chartcard .sub{font-family:ui-monospace,monospace;font-size:11px;color:var(--muted)}
+svg{display:block;width:100%;height:auto}
+.legend{display:flex;gap:18px;flex-wrap:wrap;margin:2px 2px 18px;font-size:12.5px;color:var(--ink2)}
+.legend span{display:inline-flex;align-items:center;gap:7px}
+.sw{width:22px;height:0;border-top-width:2.5px;border-top-style:solid;position:relative}
+.sw::after{content:"";position:absolute;left:8px;top:-3px;width:6px;height:6px}
+.sw.dot::after{border-radius:50%;background:currentColor}
+.sw.dia::after{transform:rotate(45deg);background:currentColor}
+.sw.ref{border-top-style:dashed;border-color:var(--axis)}
+/* tables */
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;font-size:13.5px}
+caption{text-align:left;font-size:13px;color:var(--ink2);padding:14px 16px 6px;font-weight:520}
+th,td{padding:8px 10px;text-align:right;white-space:nowrap}
+th{font-family:ui-monospace,monospace;font-size:11px;letter-spacing:.04em;color:var(--muted);
+  font-weight:600;border-bottom:1px solid var(--border)}
+th:first-child,td:first-child{text-align:left;font-family:ui-monospace,monospace}
+tbody tr+tr td{border-top:1px solid var(--border)}
+.cell{border-radius:5px;padding:5px 8px;display:inline-block;min-width:44px;text-align:center;
+  font-variant-numeric:tabular-nums}
+.na{color:var(--muted)}
+.d{font-size:11px;font-variant-numeric:tabular-nums}
+.pill{font-family:ui-monospace,monospace;font-size:11px;padding:2px 7px;border-radius:999px;
+  border:1px solid var(--border)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.note{font-size:13px;color:var(--ink2);padding:16px 18px}
+.note b{color:var(--ink)}
+.foot{margin-top:36px;font-size:12px;color:var(--muted);font-family:ui-monospace,monospace}
+@media(max-width:720px){.grid6,.two{grid-template-columns:1fr}}
+</style>
+
+<div class="wrap">
+  <div class="eyebrow">Gaussian Splatting · few-shot · diffusion augmentation · scene02 (Abrams)</div>
+  <h1>Does diffusion augmentation help few-shot Gaussian Splatting?</h1>
+  <p class="lede">Every comparison from the study. Two confounds were found and removed —
+    object-on-black <b>segmentation</b> was crippling the baselines, and the full-320-view
+    <b>ply init</b> was leaking geometry. The honest answer only appears once both are gone.
+    All metrics are <b>object-masked PSNR</b> (higher is better).</p>
+
+  <h2>Headlines</h2>
+  <div class="tiles" id="tiles"></div>
+
+  <h2>Dose–response — PSNR vs synthetic ratio</h2>
+  <div class="legend">
+    <span style="color:var(--inpaint)"><i class="sw dot" style="border-color:var(--inpaint)"></i>inpaint (same-pose, restored)</span>
+    <span style="color:var(--svd)"><i class="sw dia" style="border-color:var(--svd)"></i>SVD (novel-view)</span>
+    <span style="color:var(--muted)"><i class="sw ref"></i>baseline (r0) · full ceiling</span>
+  </div>
+  <div class="grid6" id="charts"></div>
+  <p class="note" style="padding-left:2px">Same y-scale across all six. <b>Left column (segmented)</b>:
+    baselines sit at ~6 and inpaint hauls them up dramatically — but that "great result" is mostly
+    <b>recovery from the segmentation handicap</b>. <b>Right column (natural-bg, honest random init)</b>:
+    baselines already start at 14–21, so there is far less to recover; inpaint still helps (peaks ~r100),
+    SVD mostly doesn't.</p>
+
+  <h2>The grids</h2>
+  <div class="two">
+    <div class="card scroll"><table id="tbl-seg"></table></div>
+    <div class="card scroll"><table id="tbl-nat"></table></div>
+  </div>
+
+  <h2>Three findings that reframe the study</h2>
+  <div class="two">
+    <div class="card"><table id="tbl-leak"></table>
+      <p class="note"><b>The ply leak.</b> The init cloud came from COLMAP on all 320 views, so every
+      "few-shot" run was handed the full object geometry. Worth ~7 PSNR — <b>20 honest views ≈ 5 views + the full ply.</b></p></div>
+    <div class="card"><table id="tbl-regime"></table>
+      <p class="note"><b>n20, three inits.</b> Own-ply (COLMAP on the 20 real views) nearly matches the leaky
+      full ply — but few views can't register, so <b>own-ply is n20-only</b> (n10 → 2/10, n5 → 2/5).</p></div>
+  </div>
+  <div class="card" style="margin-top:14px">
+    <table id="tbl-insight"></table>
+    <p class="note"><b>The unifying insight — augmentation's value inverts with init quality.</b> With a
+    <b>poor</b> init (honest random, no geometry) synthetic frames add missing supervision and <span class="up">help</span>.
+    With a <b>good</b> init (own-ply ≈ full ply) the geometry is already there, so the same slightly-soft frames only
+    <span class="down">dilute</span>. Inpaint "worked" earlier because the baseline was broken; fix it and little is left to add.</p>
+  </div>
+
+  <h2>Compute — cost per run (natural-bg)</h2>
+  <div class="card scroll"><table id="tbl-compute"></table></div>
+
+  <h2>Notes &amp; caveats</h2>
+  <div class="card note">
+    <b>SVD hurt is dilution, not a bug.</b> Poses, intrinsics and resolution were verified (object centroid
+    projects onto the tank; 3/4 frames match a model render at their pose). SVD frames are simply <i>soft
+    diffusion output</i> vs sharp real photos — more of them pulls the reconstruction toward that softer average.<br><br>
+    <b>Random init is noisy.</b> The n20 <span class="mono">r50</span> cells (inpaint 18.5, svd 15.5) are clear
+    instability outliers — a publishable table needs multiple seeds.<br><br>
+    <b>Zero123 (earlier arm, segmented)</b> diverged (~6 PSNR, below baseline); SVD via COLMAP-assigned poses
+    fixed the pose/FOV problem and turned that into <i>neutral/dilution</i> rather than corruption.
+  </div>
+
+  <p class="foot">scene02 · RTX 4060 8GB · splatfacto/gsplat · masked PSNR · random-init grid + archived segmented grid</p>
+</div>
+
+<script>
+const R=[0,25,50,100,200];
+const D={
+ seg:{full:24.98,
+   n5 :{base:6.74,inp:[7.65,9.50,13.90,17.49],svd:[null,null,null,null]},
+   n10:{base:6.92,inp:[8.63,10.03,18.63,19.64],svd:[null,null,6.95,6.51]},
+   n20:{base:6.34,inp:[9.40,13.65,23.49,22.00],svd:[null,null,6.28,6.24]}},
+ nat:{full:30.32,
+   n5 :{base:14.39,inp:[15.07,14.51,15.33,16.06],svd:[14.62,13.66,14.12,14.57]},
+   n10:{base:14.77,inp:[14.78,15.39,16.07,15.52],svd:[13.93,14.71,14.33,15.48]},
+   n20:{base:20.91,inp:[23.59,18.54,23.76,21.97],svd:[22.61,15.50,18.83,17.51]}}
+};
+const YMIN=6,YMAX=31;
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+/* ---------- stat tiles ---------- */
+const tiles=[
+ {k:"Full-data ceiling",v:"30.3",s:"natural-bg, all views + ply"},
+ {k:"Segmentation cost",v:"+14.6",s:"n20 base: 6.3 → 20.9",cls:"up"},
+ {k:"Best honest inpaint",v:"+2.9",s:"n20 · r100 · over baseline",cls:"up"},
+ {k:"Full-ply leak",v:"~+7",s:"20 real views ≈ 5 + full ply",cls:""},
+ {k:"SVD at high dose",v:"−3.4",s:"n20 · r200 · dilution",cls:"down"},
+];
+document.getElementById("tiles").innerHTML=tiles.map(t=>
+ `<div class="tile card"><div class="k">${t.k}</div>
+  <div class="v ${t.cls||''}">${t.v}</div><div class="s">${t.s}</div></div>`).join("");
+
+/* ---------- dose-response small multiples ---------- */
+function chart(cell,dsFull){
+ const W=320,H=188,L=34,Rp=12,T=12,B=26, pw=W-L-Rp, ph=H-T-B;
+ const x=i=>L+pw*(i/(R.length-1));
+ const y=v=>T+ph*(1-(v-YMIN)/(YMAX-YMIN));
+ const yline=inp=>[cell.base,...cell[inp]];
+ let g="";
+ // gridlines + y labels
+ for(let v=10;v<=30;v+=5){const yy=y(v).toFixed(1);
+   g+=`<line x1="${L}" y1="${yy}" x2="${W-Rp}" y2="${yy}" stroke="var(--grid)" stroke-width="1"/>`+
+      `<text x="${L-6}" y="${(+yy+3.5).toFixed(1)}" text-anchor="end" font-size="9.5" fill="var(--muted)" font-family="ui-monospace,monospace">${v}</text>`;}
+ // x labels
+ R.forEach((r,i)=>{g+=`<text x="${x(i).toFixed(1)}" y="${H-9}" text-anchor="middle" font-size="9.5" fill="var(--muted)" font-family="ui-monospace,monospace">${r}</text>`;});
+ // full ceiling
+ const fy=y(dsFull).toFixed(1);
+ g+=`<line x1="${L}" y1="${fy}" x2="${W-Rp}" y2="${fy}" stroke="var(--axis)" stroke-width="1.3" stroke-dasharray="2 3"/>`+
+    `<text x="${W-Rp}" y="${(+fy-4).toFixed(1)}" text-anchor="end" font-size="9" fill="var(--muted)">full ${dsFull.toFixed(1)}</text>`;
+ // baseline ref dotted
+ const by=y(cell.base).toFixed(1);
+ g+=`<line x1="${L}" y1="${by}" x2="${W-Rp}" y2="${by}" stroke="var(--axis)" stroke-width="1" stroke-dasharray="1 3" opacity=".7"/>`;
+ // series
+ function path(vals,color,shape){
+   const pts=vals.map((v,i)=>v==null?null:[x(i),y(v)]);
+   let d="",started=false;
+   pts.forEach(p=>{if(p){d+=(started?"L":"M")+p[0].toFixed(1)+" "+p[1].toFixed(1)+" ";started=true;}else started=false;});
+   let m=pts.map(p=>{if(!p)return"";const[cx,cy]=p;
+     return shape==="dot"?`<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="3.1" fill="${color}" stroke="var(--chart)" stroke-width="1.4"/>`
+      :`<rect x="${(cx-3).toFixed(1)}" y="${(cy-3).toFixed(1)}" width="6" height="6" fill="${color}" stroke="var(--chart)" stroke-width="1.4" transform="rotate(45 ${cx.toFixed(1)} ${cy.toFixed(1)})"/>`;}).join("");
+   return `<path d="${d}" fill="none" stroke="${color}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>${m}`;
+ }
+ g+=path(yline("svd"),css("--svd"),"dia");
+ g+=path(yline("inp"),css("--inpaint"),"dot");
+ // endpoint labels (r200)
+ const ei=R.length-1, iv=yline("inp")[ei], sv=yline("svd")[ei];
+ if(iv!=null)g+=`<text x="${(x(ei)-4).toFixed(1)}" y="${(y(iv)-6).toFixed(1)}" text-anchor="end" font-size="10" font-weight="700" fill="var(--inpaint)">${iv.toFixed(1)}</text>`;
+ if(sv!=null)g+=`<text x="${(x(ei)-4).toFixed(1)}" y="${(y(sv)+13).toFixed(1)}" text-anchor="end" font-size="10" font-weight="700" fill="var(--svd)">${sv.toFixed(1)}</text>`;
+ return `<svg viewBox="0 0 ${W} ${H}" role="img"><rect x="0" y="0" width="${W}" height="${H}" fill="var(--chart)"/>${g}</svg>`;
+}
+const cols=[["seg","Segmented (object-on-black)"],["nat","Natural background · random init"]];
+let ch="";
+[["n20","n = 20 views"],["n10","n = 10 views"],["n5","n = 5 views"]].forEach(([n,lab])=>{
+ cols.forEach(([ds,dslab])=>{
+  ch+=`<div class="chartcard card"><div class="hd"><span class="t">${lab}</span>
+     <span class="sub">${ds==="seg"?"segmented":"natural-bg"}</span></div>
+     ${chart(D[ds][n],D[ds].full)}</div>`;
+ });
+});
+document.getElementById("charts").innerHTML=ch;
+
+/* ---------- grids (heatmap) ---------- */
+function heat(v){if(v==null)return"";const t=Math.max(0,Math.min(1,(v-YMIN)/(YMAX-YMIN)));
+ return `background:rgba(var(--heat),${(0.06+t*0.60).toFixed(3)})`;}
+function gridTable(ds,title){
+ const rows=["n5","n10","n20"];
+ const head=`<tr><th>N</th><th>base</th><th>i25</th><th>i50</th><th>i100</th><th>i200</th><th>s25</th><th>s50</th><th>s100</th><th>s200</th></tr>`;
+ const body=rows.map(n=>{const c=D[ds][n];
+   const cells=[c.base,...c.inp,...c.svd].map(v=>
+     v==null?`<td class="na">·</td>`:`<td><span class="cell" style="${heat(v)}">${v.toFixed(1)}</span></td>`).join("");
+   return `<tr><td>${n}</td>${cells}</tr>`;}).join("");
+ return `<caption>${title} · <span class="mono">full ${D[ds].full.toFixed(1)}</span></caption>${head}${body}`;
+}
+document.getElementById("tbl-seg").innerHTML=gridTable("seg","Segmented grid (archived)");
+document.getElementById("tbl-nat").innerHTML=gridTable("nat","Natural-bg grid · honest random init");
+
+/* ---------- leak ---------- */
+const leak=[["n5",14.39,20.95],["n10",14.77,24.33],["n20",20.91,28.10]];
+document.getElementById("tbl-leak").innerHTML=
+ `<caption>Ply leak — random vs full-320 ply baseline</caption>
+  <tr><th>N</th><th>random</th><th>+full ply</th><th>leak</th></tr>`+
+ leak.map(([n,a,b])=>`<tr><td>${n}</td><td>${a.toFixed(2)}</td><td>${b.toFixed(2)}</td>
+   <td class="up d">+${(b-a).toFixed(2)}</td></tr>`).join("");
+
+/* ---------- n20 regimes ---------- */
+const reg=[["base",20.91,26.86,28.10],["inp r100",23.76,25.32,null],["inp r200",21.97,24.35,null],
+ ["svd r100",18.83,20.60,null],["svd r200",17.51,18.69,null]];
+document.getElementById("tbl-regime").innerHTML=
+ `<caption>n20 across init regimes</caption>
+  <tr><th>cell</th><th>random</th><th>own-ply</th><th>full-ply</th></tr>`+
+ reg.map(r=>`<tr><td>${r[0]}</td>`+r.slice(1).map(v=>v==null?`<td class="na">·</td>`:`<td>${v.toFixed(2)}</td>`).join("")+`</tr>`).join("");
+
+/* ---------- insight ---------- */
+const ins=[["baseline",20.91,26.86],["+ inpaint r100",23.76,25.32],["+ SVD r100",18.83,20.60]];
+document.getElementById("tbl-insight").innerHTML=
+ `<caption>Augmentation Δ vs init quality (n20)</caption>
+  <tr><th>n20</th><th>poor init (random)</th><th>Δ</th><th>good init (own-ply)</th><th>Δ</th></tr>`+
+ ins.map((r,i)=>{const b0=ins[0][1],b1=ins[0][2];
+   const d0=i===0?"":(r[1]-b0),d1=i===0?"":(r[2]-b1);
+   const f=d=>d===""?"":`<span class="d ${d>=0?'up':'down'}">${d>=0?'+':''}${d.toFixed(2)}</span>`;
+   return `<tr><td>${r[0]}</td><td>${r[1].toFixed(2)}</td><td>${f(d0)}</td><td>${r[2].toFixed(2)}</td><td>${f(d1)}</td></tr>`;}).join("");
+
+/* ---------- compute ---------- */
+const comp=[["n20 base",20.91,640,806],["n20 inpaint r100",23.76,527,742],
+ ["n20 SVD r100",18.83,620,882],["n20 own-ply base",26.86,597,598],["full (all views)",30.32,473,980]];
+document.getElementById("tbl-compute").innerHTML=
+ `<tr><th>run</th><th>PSNR</th><th>train time</th><th>peak VRAM</th></tr>`+
+ comp.map(r=>`<tr><td>${r[0]}</td><td>${r[1].toFixed(2)}</td><td>${(r[2]/60).toFixed(1)} min</td>
+   <td>${r[3]} MB</td></tr>`).join("");
+
+/* redraw charts on theme toggle (colors come from CSS vars) */
+const mo=new MutationObserver(()=>{document.getElementById("charts").innerHTML=ch2();});
+function ch2(){let s="";[["n20","n = 20 views"],["n10","n = 10 views"],["n5","n = 5 views"]].forEach(([n,lab])=>{
+ cols.forEach(([ds])=>{s+=`<div class="chartcard card"><div class="hd"><span class="t">${lab}</span>
+  <span class="sub">${ds==="seg"?"segmented":"natural-bg"}</span></div>${chart(D[ds][n],D[ds].full)}</div>`;});});return s;}
+mo.observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});
+</script>

@@ -1,0 +1,10 @@
+exp_id: scene02__n20_r25_zero123
+scene: scene02
+kind: augmented
+n: 20
+ratio: 25
+strategies:
+- zero123
+s: 5
+total: 25
+purpose: Extremely low synthetic impact

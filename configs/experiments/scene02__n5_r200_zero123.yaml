@@ -1,0 +1,10 @@
+exp_id: scene02__n5_r200_zero123
+scene: scene02
+kind: augmented
+n: 5
+ratio: 200
+strategies:
+- zero123
+s: 10
+total: 15
+purpose: Synthetic outweighs real

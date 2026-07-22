@@ -1,0 +1,10 @@
+exp_id: scene02__n10_r200_svd_ownply
+scene: scene02
+kind: augmented
+n: 10
+ratio: 200
+strategies:
+- svd
+s: 20
+total: 30
+purpose: Synthetic outweighs real

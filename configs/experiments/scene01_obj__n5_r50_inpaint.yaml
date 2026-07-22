@@ -1,0 +1,10 @@
+exp_id: scene01_obj__n5_r50_inpaint
+scene: scene01_obj
+kind: augmented
+n: 5
+ratio: 50
+strategies:
+- inpaint
+s: 3
+total: 8
+purpose: Minority synthetic

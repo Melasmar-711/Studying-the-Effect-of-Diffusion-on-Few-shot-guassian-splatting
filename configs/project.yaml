@@ -1,0 +1,101 @@
+# ============================================================================
+# Few-Shot Gaussian Splatting with Diffusion Augmentation — project config
+# Single source of truth for scenes, the experiment grid, and defaults.
+# Everything downstream (splits, grid, training, eval) reads from here.
+# ============================================================================
+
+project_name: fewshot-gs-diffusion
+
+# --- Scenes -----------------------------------------------------------------
+# Each scene points at a Nerfstudio `ns-process-data` output (transforms.json
+# + images + COLMAP sparse model). Add more scenes here to scale the study.
+scenes:
+  # --- scene01 / scene01_obj ARCHIVED 2026-07-14 -> archive/scene01/ ---------
+  # Data, experiments, registry rows, verdict and recovery configs moved to
+  # archive/scene01/ (see archive/scene01/RESTORE.md). Re-enable by restoring
+  # those paths and un-commenting the entries below.
+  # scene01:      source: output          (-> archive/scene01/output)
+  # scene01_obj:  source: output_masked   (-> archive/scene01/output_masked)
+
+  # SEGMENT-FIRST object-centric scene (new video, cleaner bg). Frames were
+  # segmented onto black BEFORE COLMAP, so the COLMAP output (poses + sparse_pc)
+  # is inherently object-only — no point cropping. Built by
+  # scripts/extract_and_segment.py + scripts/run_colmap_scene02.sh. 320/320 frames
+  # registered. Masks derived from the object-on-black images (exact alignment).
+  scene02:
+    source: scenes/scene02/nerf
+    transforms: scenes/scene02/nerf/transforms.json
+    images_dir: images
+    masks_dir: masks
+    object_centric: true
+    prompt: "a scale model tank on a plain background, sharp focus, high detail"
+
+# --- Held-out split + few-shot subsets --------------------------------------
+# The test set is a FIXED set of real views, identical across every experiment,
+# so PSNR/SSIM are directly comparable. Few-shot subsets are drawn (nested) from
+# the remaining train pool.
+splits:
+  holdout_every: 8          # every k-th real frame becomes a held-out test view
+  few_shot_sizes: [5, 10, 20]
+  nested: true              # n5 ⊂ n10 ⊂ n20 (clean, interpretable subsets)
+  seed: 0
+
+# --- Experiment grid (Phase 3 matrix from the Experimental Plan) ------------
+grid:
+  ratios: [0, 25, 50, 100, 200]         # synthetic:real ratio (percent)
+  # Object-centric study: inpaint = restore degraded object detail. outpaint dropped
+  # (extends blank background); guided dropped (useless). zero123 to be added once its
+  # GS integration (re-key onto bg + orbit poses) is wired in.
+  strategies: [inpaint, zero123]        # zero123 = genuine novel azimuth viewpoints
+  strategy_combos: [[zero123, inpaint]] # mixed: novel views + restored detail
+  include_full_baseline: true           # the N>=100 upper-bound run
+  round_mode: half_up                   # S = round_half_up(N * ratio/100), S>=1 when ratio>0
+
+# --- Diffusion augmentation (SD 1.5 stack; fits 8 GB) -----------------------
+diffusion:
+  base_model:       "stable-diffusion-v1-5/stable-diffusion-v1-5"
+  inpaint_model:    "stable-diffusion-v1-5/stable-diffusion-inpainting"
+  controlnet_canny: "lllyasviel/sd-controlnet-canny"
+  controlnet_depth: "lllyasviel/sd-controlnet-depth"
+  guided_control:   canny                # canny (light, default) | depth
+  gen_width:  768                        # 16:9-ish, multiple of 8
+  gen_height: 432
+  steps: 30
+  guidance_scale: 7.5
+  negative_prompt: "watermark, text, signature, logo, frame, border, blurry, distorted, lowres, cartoon"
+  seed: 0
+  # --- manipulate-then-restore (keeps outputs scene-consistent, not hallucinated) ---
+  outpaint_expand: 0.25        # fraction of FoV added around the real view (less = object stays larger)
+  outpaint_strength: 1.0       # how hard to (re)generate the outpainted border
+  outpaint_feather: 12         # soften the inner/outer seam (px) so the border blends
+  manip_blur: 18               # Gaussian blur radius used to degrade the real image
+  inpaint_manip: blur          # degrade the region first: "blur" | "remove" (black) | "spots" (black holes)
+  inpaint_region: 0.28         # fraction of the frame to occlude and restore (blur/remove)
+  inpaint_strength: 1.0        # 1.0 = fully regenerate the hole from context (fixes dark-orb artifacts)
+  inpaint_feather: 5           # soften mask edges (px) so restored regions blend
+  spots_count: 8               # number of black holes (inpaint_manip: spots)
+  spots_size: 0.08             # hole radius as a fraction of min(W,H)
+  # --- zero123 novel-view synthesis (object-centric; true new viewpoints) ---
+  # kxic/zero123-xl loads cleanly via manual component construction (see zero123.py);
+  # ashawkey/stable-zero123-diffusers is higher quality but its custom class won't
+  # auto-load on diffusers 0.27.2.
+  zero123_model: "kxic/zero123-xl"
+  zero123_bg_remove: true      # segment the object (rembg) before novel-view synthesis
+  # AZIMUTH-ONLY (verified): azimuth placement is accurate to ~2-3 deg via the local
+  # orbit rotation; elevation offsets are UNRELIABLE for this near-top-down capture
+  # (SSIM ~0.58, hallucination), so elevations are ignored by the zero123 branch.
+  zero123_azimuths: [-30, -15, 15, 30]   # relative yaw (deg) for the generated views
+  zero123_elevations: [0, 0, 0, 0]       # (ignored — kept for config compatibility)
+  zero123_steps: 50
+
+# --- Training (splatfacto / gsplat) -----------------------------------------
+training:
+  backend: splatfacto
+  max_num_iterations: 30000
+  downscale_factor: 2                    # train/eval at 960x540 — 8 GB friendly
+  extra_args: []                         # passed verbatim to `ns-train`
+
+# --- Evaluation -------------------------------------------------------------
+eval:
+  metrics: [psnr, ssim, lpips]
+  save_renders: true                     # keep held-out renders for panels

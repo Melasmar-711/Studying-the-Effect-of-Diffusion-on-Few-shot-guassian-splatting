@@ -1,0 +1,10 @@
+exp_id: scene02__n10_r25_svd_ownply
+scene: scene02
+kind: augmented
+n: 10
+ratio: 25
+strategies:
+- svd
+s: 3
+total: 13
+purpose: Extremely low synthetic impact

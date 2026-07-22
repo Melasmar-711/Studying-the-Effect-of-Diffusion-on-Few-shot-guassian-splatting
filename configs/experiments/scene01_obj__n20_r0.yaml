@@ -1,0 +1,9 @@
+exp_id: scene01_obj__n20_r0
+scene: scene01_obj
+kind: fewshot_baseline
+n: 20
+ratio: 0
+strategies: []
+s: 0
+total: 20
+purpose: Few-shot baseline (0% synthetic control)

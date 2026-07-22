@@ -1,0 +1,10 @@
+exp_id: scene02__n10_r100_inpaint
+scene: scene02
+kind: augmented
+n: 10
+ratio: 100
+strategies:
+- inpaint
+s: 10
+total: 20
+purpose: 1:1 real-to-synthetic

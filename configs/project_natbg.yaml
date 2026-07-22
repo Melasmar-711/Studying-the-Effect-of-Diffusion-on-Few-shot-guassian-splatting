@@ -1,0 +1,83 @@
+project_name: fewshot-gs-diffusion
+scenes:
+  scene02:
+    source: scenes/scene02/nerf
+    transforms: scenes/scene02/nerf/transforms.json
+    images_dir: images
+    masks_dir: masks
+    object_centric: true
+    prompt: a scale model tank on a plain background, sharp focus, high detail
+splits:
+  holdout_every: 8
+  few_shot_sizes:
+  - 5
+  - 10
+  - 20
+  nested: true
+  seed: 0
+grid:
+  ratios:
+  - 0
+  - 25
+  - 50
+  - 100
+  - 200
+  strategies:
+  - inpaint
+  - zero123
+  strategy_combos:
+  - - zero123
+    - inpaint
+  include_full_baseline: true
+  round_mode: half_up
+diffusion:
+  base_model: stable-diffusion-v1-5/stable-diffusion-v1-5
+  inpaint_model: stable-diffusion-v1-5/stable-diffusion-inpainting
+  controlnet_canny: lllyasviel/sd-controlnet-canny
+  controlnet_depth: lllyasviel/sd-controlnet-depth
+  guided_control: canny
+  gen_width: 768
+  gen_height: 432
+  steps: 30
+  guidance_scale: 7.5
+  negative_prompt: watermark, text, signature, logo, frame, border, blurry, distorted,
+    lowres, cartoon
+  seed: 0
+  outpaint_expand: 0.25
+  outpaint_strength: 1.0
+  outpaint_feather: 12
+  manip_blur: 18
+  inpaint_manip: blur
+  inpaint_region: 0.28
+  inpaint_strength: 1.0
+  inpaint_feather: 5
+  spots_count: 8
+  spots_size: 0.08
+  zero123_model: kxic/zero123-xl
+  zero123_bg_remove: true
+  zero123_azimuths:
+  - -30
+  - -15
+  - 15
+  - 30
+  zero123_elevations:
+  - 0
+  - 0
+  - 0
+  - 0
+  zero123_steps: 50
+training:
+  backend: splatfacto
+  max_num_iterations: 30000
+  downscale_factor: 2
+  extra_args:
+  - --pipeline.model.stop-split-at
+  - '3000'
+  - --pipeline.model.densify-grad-thresh
+  - '0.002'
+eval:
+  metrics:
+  - psnr
+  - ssim
+  - lpips
+  save_renders: true

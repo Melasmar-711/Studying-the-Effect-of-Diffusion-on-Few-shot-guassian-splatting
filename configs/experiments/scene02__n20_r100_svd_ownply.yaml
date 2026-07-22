@@ -1,0 +1,10 @@
+exp_id: scene02__n20_r100_svd_ownply
+scene: scene02
+kind: augmented
+n: 20
+ratio: 100
+strategies:
+- svd
+s: 20
+total: 40
+purpose: 1:1 real-to-synthetic

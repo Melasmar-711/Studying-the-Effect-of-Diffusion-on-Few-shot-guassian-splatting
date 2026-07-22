@@ -1,0 +1,45 @@
+# NOTE: .gitignore does NOT support inline (same-line) comments — keep comments
+# on their own lines, or the pattern silently matches nothing.
+
+# --- environment ---
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+# downloaded community zero123 pipeline
+.cache_zero123_pipe/
+
+# --- large source data (regenerate via ns-process-data / scripts) ---
+output/
+output_masked/
+video/
+data/scenes/
+data/splits/
+data/synthetic/
+data/svd/
+
+# --- big regenerable trees (too large for GitHub) ---
+# archive/ = 39 GB archived scenes+experiments; scenes/ = COLMAP frames;
+# experiments/ = trained models + renders (results live in results/registry.jsonl)
+archive/
+scenes/
+experiments/
+
+# --- generated / diagnostic results (keep the registry + the report) ---
+results/comparisons/
+results/previews/
+results/spikes/
+results/*.log
+results/*.png
+results/*.bak*
+results/registry_*.jsonl
+results/*.jsonl.bak*
+*.log
+
+# --- internal working files ---
+.memory.md
+
+# --- keep these explicitly ---
+!results/registry.jsonl
+!results/report/
+!.gitkeep

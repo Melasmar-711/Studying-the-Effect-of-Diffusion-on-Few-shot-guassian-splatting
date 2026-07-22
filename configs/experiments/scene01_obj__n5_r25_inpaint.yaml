@@ -1,0 +1,10 @@
+exp_id: scene01_obj__n5_r25_inpaint
+scene: scene01_obj
+kind: augmented
+n: 5
+ratio: 25
+strategies:
+- inpaint
+s: 1
+total: 6
+purpose: Extremely low synthetic impact

@@ -1,0 +1,9 @@
+exp_id: scene02__full
+scene: scene02
+kind: full
+n: -1
+ratio: 0
+strategies: []
+s: 0
+total: -1
+purpose: Full-data upper bound (N>=100 real images)

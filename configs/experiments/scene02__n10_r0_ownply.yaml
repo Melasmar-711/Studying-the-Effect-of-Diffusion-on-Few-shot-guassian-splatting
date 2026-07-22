@@ -1,0 +1,9 @@
+exp_id: scene02__n10_r0_ownply
+scene: scene02
+kind: fewshot_baseline
+n: 10
+ratio: 0
+strategies: []
+s: 0
+total: 10
+purpose: Few-shot baseline (0% synthetic control)

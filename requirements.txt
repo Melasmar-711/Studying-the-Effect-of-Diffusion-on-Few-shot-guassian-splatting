@@ -1,0 +1,28 @@
+# Python deps for the few-shot GS + diffusion workspace.
+#
+# NOTE: torch + gsplat need special install channels (CUDA-matched wheels) and
+# are handled by setup.sh, NOT by `pip install -r requirements.txt`:
+#   torch==2.1.2+cu118  torchvision==0.16.2+cu118   (--index-url .../whl/cu118)
+#   gsplat                                           (-f .../whl/pt21cu118)
+# Everything below is plain PyPI and installs after those.
+
+numpy<2                     # torch 2.1.2 / nerfstudio require the 1.x ABI
+nerfstudio==1.1.5           # provides splatfacto (gsplat backend), ns-train/ns-eval
+
+# diffusion augmentation stack (SD 1.5 + ControlNet)
+# Pinned for torch 2.1.2: diffusers>=0.30 / transformers>=5 need torch.xpu (torch>=2.4).
+diffusers==0.27.2
+transformers==4.41.2
+huggingface_hub==0.23.4
+accelerate==0.30.1
+controlnet_aux==0.0.7
+opencv-python-headless
+hf_transfer            # robust parallel model downloads (flaky-CDN resilience)
+
+# metrics + reporting
+scikit-image
+lpips
+matplotlib
+pandas
+tabulate               # pandas.to_markdown for the comparison report
+pyyaml
