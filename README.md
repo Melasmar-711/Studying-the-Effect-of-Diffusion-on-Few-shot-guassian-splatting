@@ -43,15 +43,6 @@ GitHub) · [PDF](results/report/fewshot_report.pdf) · interactive HTML: [`resul
 
 ---
 
-## What's in this repo (and what isn't)
-
-Tracked here: all **code** (`src/`, `scripts/`), the **experiment configs**, the
-**results registry**, and the **report + dashboard**. Deliberately *not* tracked (huge,
-regenerable — see `.gitignore`): the 39 GB `archive/`, trained models under
-`experiments/`, COLMAP frames under `scenes/`, generated frames under `data/`, `video/`,
-and `.venv/`. Every run's numbers live in **`results/registry.jsonl`**.
-
----
 
 ## The experiment grid
 
