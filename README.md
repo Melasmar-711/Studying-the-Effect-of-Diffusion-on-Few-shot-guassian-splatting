@@ -10,9 +10,10 @@ score is **object-masked PSNR** (the object is measured, never the background).
 > (Zero123 / SVD, which soften and *hurt*). And getting to that answer meant discovering
 > that **two of our own setup choices** were quietly deciding the outcome.
 
-📄 **Full report (the whole story + figures):** [`results/report/fewshot_report.html`](results/report/fewshot_report.html)
+📄 **Full report — the whole story + figures:** **[`REPORT.md`](REPORT.md)** (renders here on
+GitHub) · interactive HTML version: [`results/report/fewshot_report.html`](results/report/fewshot_report.html)
 📊 **All comparisons at a glance:** [`results/report/fewshot_dashboard.html`](results/report/fewshot_dashboard.html)
-🧭 **Working log / train-of-thought:** [`results/report/TRAIN_OF_THOUGHT.md`](results/report/TRAIN_OF_THOUGHT.md)
+🧭 **Detailed working log:** [`results/report/TRAIN_OF_THOUGHT.md`](results/report/TRAIN_OF_THOUGHT.md)
 
 ---
 

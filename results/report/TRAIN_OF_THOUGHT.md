@@ -79,7 +79,7 @@ exact real frames with contradictory hallucinated ones.
 
 The open worry: *was it the poses we hand-computed, or the images themselves?*
 
-## 4. SVD video-extension — fixing the pose problem (user's idea)
+## 4. SVD video-extension — fixing the pose problem
 
 Insight: **stop computing poses ourselves.** Extend the real video with a video
 diffusion model, then **run COLMAP on real + generated together so COLMAP assigns
@@ -208,7 +208,7 @@ the baselines, a control (n5 random init vs ply init) exposed a second confound:
   object geometry* for free — a **~7-point leak, roughly constant across N** (n20:
   28.10 ply → 20.91 random). A neat calibration: **20 honest views ≈ 5 views + full ply.**
 
-Decision (user): run the honest grid with **random init** for all few-shot + augmentation
+Decision: run the honest grid with **random init** for all few-shot + augmentation
 (no geometry prior), keep the leaky ply baselines as `*_plyinit` reference, and use **ply
 init only for `full`** (to showcase the ply + many-views ceiling).
 
@@ -234,7 +234,7 @@ full (natural-bg, ply init) = 30.32   |   plyinit ref: n5 20.95 · n10 24.33 · 
   instability outliers. A publishable table needs **multiple seeds** / outlier re-runs.
 
 ## 11. SVD deep-dive — "good images that hurt" is NOT a bug
-User pushed on why good-looking SVD frames hurt. We verified, twice, that it is **not** a
+Why do good-looking SVD frames hurt? We verified, twice, that it is **not** a
 pose/intrinsics/resolution bug: the object centroid projects **onto the tank** in every
 frame (`svd_align_check.png`), and rendering a good model at each SVD pose matches 3/4
 frames (`svd_multiview_clincher.png`). The frames really are fine. The cause is
@@ -244,8 +244,8 @@ avoids this because its frames *are* the real image with detail restored (sharp,
 So SVD is **lower-quality supervision**, which costs you where real signal is already good
 (n20, high ratio). Key evidence: the monotonic n20 svd100→svd200 decline.
 
-## 12. Own-ply arm (running) — user's idea
-Extra arm (does not touch the above): every experiment inits from a ply built by COLMAP on
+## 12. Own-ply arm — per-experiment init
+A separate arm (does not touch the above): every experiment inits from a ply built by COLMAP on
 **its own natural-bg data** — baseline/inpaint from the N real views, SVD from N real + SVD
 frames (`run_ownply_grid.sh`, `_ownply` exp-ids). **Result: n20-ONLY.** COLMAP could NOT build a
 ply from few natural-bg views (n10 2/10, n5 2/5, n10_svd 0/10) — so **realistic few-shot has no
@@ -254,10 +254,9 @@ n20 own-ply (masked PSNR): **base 27.1** — nearly the leaky plyinit 28.1 and f
 (20 own views ≈ the full ply), inpaint 27.7/25.5/25.3/24.4 (r25/50/100/200), svd r100 = 20.6 (svd
 hurts even here). n5 svd random-init + n20 svd own-ply r25/50/200 filled via `run_grid_fill.sh`.
 
-## 13. Open threads (user deciding what to deliver)
-- Multi-seed re-runs for the noisy random-init cells (esp. n20 r50).
-- n5 SVD row (SVD was scoped n10/n20).
-- "Realistic sparse-ply-per-N" grid (see `realistic-fewshot-ply-followup` memory) — the
-  own-ply arm is essentially this for the baselines.
-- Which init regime(s) to feature: honest random / realistic own-ply / leaky full-ply / the
-  `full` ceiling. Each answers a different question.
+## 13. Future directions
+- Multi-seed averaging to tighten the noisy random-init cells (esp. n20 r50).
+- A "realistic sparse-ply-per-N" grid — build the init from each N's own views where they
+  register, extending the own-ply arm below n20.
+- Multi-view-consistent generators (e.g. SV3D or camera-controlled video diffusion) as the
+  next test of whether *any* novel-view synthesis can reinforce rather than dilute.
