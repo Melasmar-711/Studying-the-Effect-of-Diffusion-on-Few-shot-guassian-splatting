@@ -17,18 +17,26 @@ scenes:
   # scene01:      source: output          (-> archive/scene01/output)
   # scene01_obj:  source: output_masked   (-> archive/scene01/output_masked)
 
-  # SEGMENT-FIRST object-centric scene (new video, cleaner bg). Frames were
-  # segmented onto black BEFORE COLMAP, so the COLMAP output (poses + sparse_pc)
-  # is inherently object-only — no point cropping. Built by
-  # scripts/extract_and_segment.py + scripts/run_colmap_scene02.sh. 320/320 frames
-  # registered. Masks derived from the object-on-black images (exact alignment).
+  # Active scene: a scale-model tank captured on a textured (natural) background.
+  # Training uses the natural images; metrics are restricted to the object via the
+  # per-frame masks (object_centric + masks_dir). Built from video/2.mp4 with COLMAP
+  # (poses + sparse_pc.ply) + scripts/make_masks.py for the masks.
   scene02:
-    source: scenes/scene02/nerf
-    transforms: scenes/scene02/nerf/transforms.json
-    images_dir: images
-    masks_dir: masks
-    object_centric: true
+    source: scenes/scene02/nerf                     # the ns-process-data / COLMAP output dir
+    transforms: scenes/scene02/nerf/transforms.json # camera poses + intrinsics (+ ply_file_path)
+    images_dir: images                              # training images (relative to source)
+    masks_dir: masks                                # object masks for masked metrics
+    object_centric: true                            # score only object pixels
     prompt: "a scale model tank on a plain background, sharp focus, high detail"
+
+  # --- TEMPLATE: add your own scene (see README "Adding a scene") ------------
+  # myscene:
+  #   source: scenes/myscene/nerf         # ns-process-data output (images + transforms.json + ply)
+  #   transforms: scenes/myscene/nerf/transforms.json
+  #   images_dir: images
+  #   masks_dir: masks                    # make with scripts/make_masks.py (aligned to images)
+  #   object_centric: true               # false = score the full image, no masks needed
+  #   prompt: "a <your object> on a plain background, sharp focus, high detail"
 
 # --- Held-out split + few-shot subsets --------------------------------------
 # The test set is a FIXED set of real views, identical across every experiment,
@@ -46,8 +54,8 @@ grid:
   # Object-centric study: inpaint = restore degraded object detail. outpaint dropped
   # (extends blank background); guided dropped (useless). zero123 to be added once its
   # GS integration (re-key onto bg + orbit poses) is wired in.
-  strategies: [inpaint, zero123]        # zero123 = genuine novel azimuth viewpoints
-  strategy_combos: [[zero123, inpaint]] # mixed: novel views + restored detail
+  strategies: [inpaint, svd]            # inpaint = same-pose restore; svd = novel views (COLMAP-solved poses)
+  strategy_combos: []                   # e.g. [[svd, inpaint]] to mix novel views + restored detail
   include_full_baseline: true           # the N>=100 upper-bound run
   round_mode: half_up                   # S = round_half_up(N * ratio/100), S>=1 when ratio>0
 

@@ -11,7 +11,7 @@ score is **object-masked PSNR** (the object is measured, never the background).
 > that **two of our own setup choices** were quietly deciding the outcome.
 
 📄 **Full report — the whole story + figures:** **[`REPORT.md`](REPORT.md)** (renders here on
-GitHub) · interactive HTML version: [`results/report/fewshot_report.html`](results/report/fewshot_report.html)
+GitHub) · [PDF](results/report/fewshot_report.pdf) · interactive HTML: [`results/report/fewshot_report.html`](results/report/fewshot_report.html)
 📊 **All comparisons at a glance:** [`results/report/fewshot_dashboard.html`](results/report/fewshot_dashboard.html)
 🧭 **Detailed working log:** [`results/report/TRAIN_OF_THOUGHT.md`](results/report/TRAIN_OF_THOUGHT.md)
 
@@ -115,6 +115,52 @@ poses and scored with object-masked PSNR/SSIM/LPIPS; a global similarity is fit 
 training cameras so numbers are comparable across the grid (`pose_fit_residual ≈ 0`).
 
 ---
+
+## Adding your own scene
+
+1. **Capture** a video (or images) orbiting an object.
+2. **COLMAP → poses + point cloud:**
+   ```bash
+   ns-process-data video --data my.mp4 --output-dir scenes/myscene/nerf
+   # (or: ns-process-data images --data my_frames/ --output-dir scenes/myscene/nerf)
+   ```
+3. **Object masks** for the masked metric, aligned to the images COLMAP produced:
+   ```bash
+   python scripts/make_masks.py --images scenes/myscene/nerf/images \
+                                --out    scenes/myscene/nerf/masks
+   ```
+4. **Register** it in `configs/project.yaml` — copy the commented `myscene:` template block
+   (set `source`, `masks_dir`, `prompt`; use `object_centric: false` to score the whole image
+   and skip masks).
+5. **Run:**
+   ```bash
+   python scripts/gen_grid.py    --scene myscene
+   python scripts/make_splits.py --scene myscene
+   python scripts/run_experiment.py --exp myscene__n20_r100_inpaint --config configs/project.yaml
+   ```
+
+Inpaint pools are generated on demand. The **SVD** strategy needs its pool built first with the
+`gen_svd_neighbors.py` → `svd_segment.py` → `svd_register.py` → `svd_build_pool.py` chain.
+
+## Design your own experiments
+
+Everything is driven by **`configs/project.yaml`** — no code edits to run a study:
+
+| Knob | Field | Example |
+|---|---|---|
+| few-shot sizes | `splits.few_shot_sizes` | `[3, 8, 15]` |
+| held-out cadence | `splits.holdout_every` | every k-th frame is a test view |
+| synthetic ratios | `grid.ratios` | `[0, 50, 100, 150]` |
+| strategies | `grid.strategies` | `[inpaint, svd]` |
+| strategy combos | `grid.strategy_combos` | `[[svd, inpaint]]` |
+| training length / res | `training.max_num_iterations`, `training.downscale_factor` | |
+| inpaint behaviour | `diffusion.inpaint_manip / inpaint_region / manip_blur / inpaint_strength` | |
+
+`python scripts/gen_grid.py --scene <s>` turns this into one `<exp_id>.yaml` per cell in
+`configs/experiments/`; a run is just `run_experiment.py --exp <id>`. Init regime (random /
+ply / own-ply) is set by the config + ply-swap — see [`GETTING_STARTED.md`](GETTING_STARTED.md).
+**Add a new strategy** by adding a branch in `src/gsfewshot/synthetic.py` (`generate_for_subset`)
+and listing it in `grid.strategies`.
 
 ## Scenes & the pivot
 

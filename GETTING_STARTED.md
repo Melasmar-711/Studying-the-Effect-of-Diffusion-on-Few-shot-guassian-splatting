@@ -153,6 +153,18 @@ OOMs at ~step 3800.
 | SVD generation | `diffusion.zero123_*` / SVD knobs in `scripts/gen_svd_neighbors.py` |
 After editing, re-run `gen_grid.py` (and `make_splits.py` if you touched `splits`).
 
+### Add another scene
+```bash
+ns-process-data video --data my.mp4 --output-dir scenes/myscene/nerf   # poses + ply + images
+python scripts/make_masks.py --images scenes/myscene/nerf/images --out scenes/myscene/nerf/masks
+# copy the `myscene:` template in configs/project.yaml, then:
+python scripts/gen_grid.py --scene myscene && python scripts/make_splits.py --scene myscene
+python scripts/run_experiment.py --exp myscene__n20_r0 --config configs/project.yaml
+```
+`object_centric: false` in the scene block scores the whole image (no masks). To design a
+different sweep, edit `grid.*` / `splits.*` in `configs/project.yaml` and re-run `gen_grid.py`.
+Full recipe + knob table in [README.md](README.md#adding-your-own-scene).
+
 ### Troubleshooting
 - **`ns-train` / gsplat CUDA error** — use the prebuilt gsplat wheel; the system nvcc 11.5
   can't compile for the 4060. `setup.sh` handles it; don't `pip install gsplat` from PyPI.
