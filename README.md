@@ -1,65 +1,127 @@
-# Few-Shot Gaussian Splatting with Diffusion-Based Data Augmentation
+# Studying the Effect of Diffusion Augmentation on Few-Shot Gaussian Splatting
 
-An organized workspace for the study described in the project spec + experimental
-plan: train Gaussian Splatting from a **few** real views, augment the training set
-with **diffusion-generated** synthetic views, and measure how the synthetic:real
-ratio and the augmentation strategy affect held-out render quality.
+Train Gaussian Splatting (`splatfacto`) from a **handful** of real views, generate the
+missing supervision with a **diffusion model**, and measure whether it recovers the
+quality of a full capture. Object-centric study of a scale-model Abrams tank; every
+score is **object-masked PSNR** (the object is measured, never the background).
 
-- **GS backend:** Nerfstudio `splatfacto` (gsplat)
-- **Study mode:** **object-centric** — the object is segmented onto a fixed black
-  background for every image (real + synthetic); see [Object-centric mode](#object-centric-mode).
-- **Augmentation:** SD 1.5 **inpaint** (recover degraded object detail) + **Zero123**
-  novel object views. (Outpaint & ControlNet-guided were evaluated and dropped — see below.)
-- **Metrics:** PSNR, SSIM, LPIPS **restricted to the object mask** + train time + peak VRAM.
-- **Target box:** RTX 4060 (8 GB), driver 580, nvcc 11.5 — see [Environment notes](#environment-notes)
+> **The short version:** diffusion augmentation *does* help few-shot object GS — but as
+> clean **same-pose regularization** (inpaint), **not** as novel-view synthesis
+> (Zero123 / SVD, which soften and *hurt*). And getting to that answer meant discovering
+> that **two of our own setup choices** were quietly deciding the outcome.
 
-> **Two scenes live in the config:** `scene01` (original, full background — deprecated)
-> and **`scene01_obj`** (object-on-black — the active study). Work on `scene01_obj`.
+📄 **Full report (the whole story + figures):** [`results/report/fewshot_report.html`](results/report/fewshot_report.html)
+📊 **All comparisons at a glance:** [`results/report/fewshot_dashboard.html`](results/report/fewshot_dashboard.html)
+🧭 **Working log / train-of-thought:** [`results/report/TRAIN_OF_THOUGHT.md`](results/report/TRAIN_OF_THOUGHT.md)
 
 ---
 
-## TL;DR
+## Headline findings
+
+- **Two confounds each moved the numbers more than any augmentation did:**
+  1. **Object-on-black segmentation crippled few-shot.** Same 20 views, natural background
+     instead of black: baseline PSNR **6.3 → 27.4**, with *no* augmentation. Few-shot GS
+     needs background texture to anchor a sparse optimization; black destabilizes it.
+  2. **The full-320-view ply init leaked geometry** into every "few-shot" run — worth
+     **~+7 PSNR** (n5: `20.95` with the ply vs `14.39` random init). *20 honest views ≈ 5
+     views + the full ply.*
+- **Once both are removed** (natural background + random init), the honest picture:
+
+  | masked PSNR | baseline | + inpaint (best) | + SVD |
+  |---|---|---|---|
+  | n5  | 14.4 | 16.1 (r200, **+1.7**) | ≈ flat |
+  | n10 | 14.8 | 16.1 (r100, **+1.3**) | ≈ flat |
+  | n20 | 20.9 | 23.8 (r100, **+2.9**) | **−2 to −3** at high dose |
+  | full (all views) | **30.3** | | |
+
+- **Inpaint helps, peaks near a 1:1 ratio.** **SVD is dose-dependent** — a little helps at
+  n20, a lot dilutes (SVD frames are soft diffusion output; piling them on drags the
+  reconstruction toward that softer average). Verified *not* a pose/intrinsics bug.
+- **The unifying insight:** augmentation's value **inverts with init quality** — synthetic
+  frames *help a poor init* (they add missing supervision) and *dilute a good one*.
+
+---
+
+## What's in this repo (and what isn't)
+
+Tracked here: all **code** (`src/`, `scripts/`), the **experiment configs**, the
+**results registry**, and the **report + dashboard**. Deliberately *not* tracked (huge,
+regenerable — see `.gitignore`): the 39 GB `archive/`, trained models under
+`experiments/`, COLMAP frames under `scenes/`, generated frames under `data/`, `video/`,
+and `.venv/`. Every run's numbers live in **`results/registry.jsonl`**.
+
+---
+
+## The experiment grid
+
+Few-shot size **N ∈ {5, 10, 20}** × synthetic:real ratio **{0, 25, 50, 100, 200}%** ×
+augmentation **strategy**, plus a `full` (all-views) upper bound.
+
+| Base real N | Synthetic ratio | S = round₊(ratio·N) | Total | Purpose |
+|---|---|---|---|---|
+| full | — | 0 | all | Upper-bound ceiling |
+| 5 / 10 / 20 | 0% | 0 | N | Few-shot baseline (control) |
+| 5 / 10 / 20 | 25 / 50 / 100 / 200% | 1 … 2N | N+S | Rising synthetic dose |
+
+`python scripts/gen_grid.py --scene scene02` materializes one YAML per run in
+`configs/experiments/`. `configs/project.yaml` is the single source of truth — edit it to
+change sizes / ratios / strategies. **Init regimes** the study compares:
+
+- **random init** — no geometry prior; the *honest* few-shot floor.
+- **ply init** — the full-scene point cloud (leaks geometry; kept as a `*_plyinit` reference and for `full`).
+- **own-ply** — COLMAP on each experiment's *own* views (feasible only at n20 — fewer views don't register).
+
+---
+
+## Augmentation strategies
+
+- **inpaint** ✅ — degrade a region **on the object** (masked to the object bbox) then let
+  SD-inpainting **restore** it. A frame at the *exact real pose*, photometrically
+  consistent — same-pose regularization. `src/gsfewshot/synthetic.py`.
+- **svd** — genuine novel viewpoints via **Stable Video Diffusion**, with poses solved by
+  running **COLMAP on real + generated together** (no hand-computed geometry).
+  `gen_svd_neighbors.py` → `svd_segment.py` → `svd_register.py` → `svd_build_pool.py`.
+  Poses/intrinsics verified correct; still *dilutes* because the frames are soft.
+- **zero123** ❌ — earlier arm; hand-computed orbit poses diverged (~6 PSNR). Superseded by
+  SVD's COLMAP-solved poses.
+- **outpaint / guided** ❌ — dropped early (extend blank background / hallucinate).
+
+---
+
+## Reproduce a run
 
 ```bash
-bash setup.sh                                  # one-time install (venv + all deps)
-source .venv/bin/activate
+bash setup.sh && source .venv/bin/activate            # one-time install (venv + deps)
 
-python scripts/gen_grid.py    --scene scene01  # enumerate the experiment matrix
-python scripts/make_splits.py --scene scene01  # fixed test set + few-shot subsets
+python scripts/gen_grid.py    --scene scene02          # enumerate the grid
+python scripts/make_splits.py --scene scene02          # fixed test set + nested few-shot subsets
 
-# run one experiment end-to-end (splits -> synth -> train -> eval -> registry)
-python scripts/run_experiment.py --exp scene01__n5_r0
-python scripts/run_experiment.py --exp scene01__n5_r100_guided
+# one experiment end-to-end: assemble (real + synthetic) -> ns-train -> masked eval -> registry
+python scripts/run_experiment.py --exp scene02__n20_r100_inpaint --config configs/project.yaml
 
-python scripts/compare.py                      # rebuild the comparison dashboard
+python scripts/compare.py                              # rebuild the comparison dashboard
 ```
 
-`scripts/compare.py` writes `results/comparisons/index.html` — open it to see the
-results table, metric-vs-ratio plots, and GT-vs-render panels for every run so far.
+**Init control:** *random* = strip `ply_file_path` from the scene `transforms.json`
+(then restore); *ply* = keep it and use the capped config `configs/project_natbg.yaml`
+(the cap prevents a many-view densification runaway). The grid runners
+(`run_natbg_random_grid.sh`, `run_ownply_grid.sh`, …) automate the swaps with a
+trap-restore.
+
+**Fair evaluation:** `make_splits.py` reserves a fixed held-out set of real views (every
+8th frame), identical for every experiment. Each trained model is rendered at those exact
+poses and scored with object-masked PSNR/SSIM/LPIPS; a global similarity is fit from the
+training cameras so numbers are comparable across the grid (`pose_fit_residual ≈ 0`).
 
 ---
 
-## The experiment grid (Phase 3 of the plan)
+## Scenes & the pivot
 
-For each scene:
-
-| Base real N | Synthetic ratio | S (synthetic) | Total | Purpose |
-|---|---|---|---|---|
-| full (≥100) | — | 0 | all | Upper-bound baseline |
-| 5 / 10 / 20 | 0% | 0 | N | Few-shot baseline (control) |
-| 5 / 10 / 20 | 25% | round(0.25·N) | N+S | Extremely low synthetic impact |
-| 5 / 10 / 20 | 50% | round(0.50·N) | N+S | Minority synthetic |
-| 5 / 10 / 20 | 100% | N | 2N | 1:1 real-to-synthetic |
-| 5 / 10 / 20 | 200% | 2N | 3N | Synthetic outweighs real |
-
-…each augmented cell run for every diffusion **strategy**
-(`outpaint`, `inpaint`, `guided`) and any `strategy_combos` you add.
-`python scripts/gen_grid.py` materializes this as one YAML per run in
-`configs/experiments/` plus `index.csv`. Edit `configs/project.yaml` to change
-sizes/ratios/strategies — everything downstream reads from it.
-
-**S is computed with round-half-up** (`N=5, 50% → 3`) so the ambiguous rows in the
-plan resolve deterministically.
+- **`scene01`, `scene01_obj`** — first captures, archived to `archive/scene01/`.
+- **`scene02`** — the main study. Originally built **segment-first** (object-on-black
+  before COLMAP); after discovering segmentation was the handicap, it was **re-run on the
+  natural background** (train on the full image, still score only the object). The
+  segmented pipeline is preserved in `archive/scene02_segmented/` (restorable).
 
 ---
 
@@ -67,99 +129,34 @@ plan resolve deterministically.
 
 ```
 configs/
-  project.yaml              # SINGLE SOURCE OF TRUTH (scenes, grid, diffusion, training)
-  experiments/              # generated: one <exp_id>.yaml per run + index.csv
-data/
-  scenes/scene01/           # symlink -> output/ (the ns-process-data result)
-  splits/scene01/           # generated: test/ full/ n5/ n10/ n20/ + manifest.json
-  synthetic/scene01/        # generated: n{N}/{outpaint,inpaint,guided}/*.png (+ sidecars)
-src/gsfewshot/              # importable package (all logic lives here)
-scripts/                    # thin CLIs (gen_grid, make_splits, generate_synthetic,
-                            #            train, evaluate, run_experiment, compare)
-experiments/<exp_id>/       # per-run record: data/ train/ eval/ (renders + metrics.json)
+  project.yaml            # single source of truth (scenes, grid, diffusion, training)
+  project_natbg.yaml      # natural-bg + densification cap (ply-init runs)
+  experiments/            # generated: one <exp_id>.yaml per run + index.csv
+src/gsfewshot/            # importable package (all logic)
+scripts/                  # CLIs + pipeline: run_experiment, compare, gen_svd_*,
+                          #   svd_register, build_honest_ply, grid runners, diagnostics
 results/
-  registry.jsonl            # append-only record of every run  <-- the source of truth
-  comparisons/              # generated dashboard: index.html, results.csv/.md, plots, panels
-  report/                   # your ~5-page report assets
+  registry.jsonl          # append-only record of every run  <-- source of truth
+  report/                 # the report + dashboard + TRAIN_OF_THOUGHT.md
+experiments/<exp_id>/     # per-run: assembled data / trained model / eval  (git-ignored)
+scenes/, data/, archive/  # frames, generated views, archived pipelines     (git-ignored)
 ```
 
-### `exp_id` naming
-
-- `scene01__full` — full-data upper bound
-- `scene01__n5_r0` — few-shot baseline (N=5, 0% synthetic)
-- `scene01__n10_r100_guided` — N=10, 100% synthetic, guided strategy
-- `scene01__n20_r50_outpaint+inpaint` — combo strategies joined by `+`
-
----
-
-## How evaluation stays fair
-
-`make_splits.py` reserves a **fixed held-out test set** of real views (every _k_-th
-frame, default `k=8`) that is **identical for every experiment** and never used for
-training or augmentation. Few-shot subsets are drawn (nested: `n5 ⊂ n10 ⊂ n20`) from
-the remaining pool. `evaluate.py` renders those exact test poses from each trained
-model and computes PSNR/SSIM/LPIPS against ground truth — so numbers are directly
-comparable across the whole grid.
-
-> Sanity check the pose handling anytime with
-> `python scripts/evaluate.py --exp <id> --sanity` (renders *training* views; PSNR
-> should be high).
-
----
-
-## Object-centric mode
-
-The object is segmented onto a **fixed black background** for every image so the study
-measures *object* reconstruction, and so real and Zero123 (white-bg) views share one
-visual domain. Build the masked scene (poses unchanged — COLMAP is **not** re-run):
-
-```bash
-python scripts/make_masked_scene.py --scene scene01 --out output_masked --bg black --segmenter sam
-python scripts/gen_grid.py    --scene scene01_obj
-python scripts/make_splits.py --scene scene01_obj
-```
-
-- **Segmentation** (`src/gsfewshot/segment.py`): plain rembg (u2net/isnet) cuts the
-  object on hard top-down angles, so we use **isnet → SAM**: rembg locates the object,
-  SAM (prompted with object points + negative corner points, mask chosen by
-  coarse-overlap) recovers the *complete* object without drifting to the table.
-- **Masked metrics**: PSNR over object pixels, SSIM/LPIPS over the object bbox.
-- **Point-cloud init is kept** in `output_masked/transforms.json` — dropping it makes
-  splatfacto overfit on the textureless black background (train views perfect, held-out
-  views misaligned).
-
-## Augmentation strategies (object-centric)
-
-- **inpaint** ✅ — degrade a region **on the object** (blur, placed inside the mask bbox)
-  then restore it → recover degraded object detail. `gen_inpaint(..., focus_box=bbox)`.
-- **zero123** ✅ (preview-only for now) — genuine **novel object viewpoints** via
-  `kxic/zero123-xl` (`src/gsfewshot/zero123.py`). To train with it: re-key the white
-  output onto black + set the camera pose to orbit the object centre.
-- **outpaint** ❌ dropped — extends blank background.
-- **guided** ❌ dropped — text2img hallucinated; img2img just copied the input.
-
----
-
-## Adding a scene
-
-1. Run `ns-process-data video --data your.mp4 --output-dir output_scene2` (or images).
-2. Add it under `scenes:` in `configs/project.yaml`.
-3. `gen_grid.py --scene scene2 && make_splits.py --scene scene2` and run experiments.
+`exp_id` examples: `scene02__full` · `scene02__n5_r0` (baseline) ·
+`scene02__n20_r100_inpaint` · `scene02__n10_r200_svd` · `..._plyinit` / `..._ownply`
+(init-regime variants).
 
 ---
 
 ## Environment notes
 
-- **venv** at `.venv` (Python 3.10). `torch==2.1.2+cu118`, `nerfstudio 1.1.5`,
+- **venv** (`Python 3.10`): `torch==2.1.2+cu118`, `nerfstudio 1.1.5`,
   `gsplat 1.4.0+pt21cu118`, `diffusers 0.27.2`.
-- **CUDA / gsplat:** the system `nvcc` is **11.5**, which cannot compile for the
-  4060's Ada `sm_89`. So we install gsplat's **prebuilt** `+pt21cu118` wheel (built
-  with CUDA 11.8) — it ships `gsplat/csrc.so` and needs no local compilation. Do
-  **not** `pip install gsplat` from PyPI (that pulls a source wheel that JIT-fails).
-  `setup.sh` handles this; `scripts/_bootstrap.py` also sets
-  `TORCH_CUDA_ARCH_LIST=8.6+PTX` as a harmless fallback in case any extension ever
-  does compile.
-- **setuptools<81:** required so `pkg_resources` still exists for torch 2.1.2's
-  `cpp_extension`.
-- **8 GB VRAM:** training runs at `downscale_factor=2` (960×540) by default; diffusion
-  uses attention/VAE slicing. Tune both in `configs/project.yaml`.
+- **gsplat:** the system `nvcc` is **11.5**, which can't compile for the 4060's Ada
+  `sm_89`, so we install gsplat's **prebuilt** `+pt21cu118` wheel (no local compilation).
+  Do **not** `pip install gsplat` from PyPI. `setup.sh` handles this.
+- **setuptools<81** so `pkg_resources` still exists for torch 2.1.2's `cpp_extension`.
+- **8 GB VRAM:** training at `downscale_factor=2` (960×540); diffusion uses attention /
+  VAE slicing; SVD uses model-offload + forward-chunking. Segmentation is `isnet → SAM`
+  (`src/gsfewshot/segment.py`).
+- Target box: RTX 4060 (8 GB), no sudo.
